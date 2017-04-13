@@ -1,7 +1,9 @@
 #lang info
 (define collection "typed-worklist")
 (define deps '("base"
-               "rackunit-lib"))
+               "rackunit-lib"
+               "type-expander"
+               "typed-racket-lib"))
 (define build-deps '("scribble-lib"
                      "racket-doc"))
 (define scribblings '(("scribblings/typed-worklist.scrbl" ())))
