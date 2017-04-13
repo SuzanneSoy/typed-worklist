@@ -8,8 +8,6 @@ env:
     - PATH="$RACKET_DIR/bin:$PATH"
   matrix:
     # RACKET_VERSION is an argument to install-racket.sh
-    - RACKET_VERSION=6.4
-    - RACKET_VERSION=6.5
     - RACKET_VERSION=6.6
     - RACKET_VERSION=6.7
     - RACKET_VERSION=6.8
