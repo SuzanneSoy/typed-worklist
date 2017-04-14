@@ -1,4 +1,8 @@
-#lang type-expander
+#lang typed/racket
+
+(provide work)
+
+(require (only-in type-expander unsafe-cast))
 
 ;; TODO: write a macro wrapper which does the unsafe-cast (until the bug in TR
 ;; is fixed), and (un)wraps the inputs and outputs.
@@ -16,12 +20,6 @@
 (define #:∀ (A) (i-v [w : (I A)]) : A (cdr w))
 (define #:∀ (A) (o-v [w : (O A)]) : A (cdr w))
 
-(: worklist
-   (∀ (II OO A ...)
-      (→ (List (Listof (∩ A II)) ...)
-         (List (→ (∩ A II) (List (∩ A OO) (Listof (∩ A II)) ...)) ...)
-         (List (Listof (∩ A OO)) ...))))
-
 (: kons (∀ (A B) (→ A B (Pairof A B))))
 (define kons cons)
 
@@ -30,9 +28,10 @@
   #;(define (append-inner-inner lll)
       (apply map append lll))
 
-  (: append-inner-inner (∀ (OO A ...) (→ (Pairof (List (Listof (∩ OO A)) ...)
-                                                 (Listof (List (Listof (∩ OO A)) ...)))
-                                         (List (Listof (∩ OO A)) ... A))))
+  (: append-inner-inner (∀ (OO A ...)
+                           (→ (Pairof (List (Listof (∩ OO A)) ...)
+                                      (Listof (List (Listof (∩ OO A)) ...)))
+                              (List (Listof (∩ OO A)) ... A))))
   (define (append-inner-inner lll)
     (if (null? lll)
         '()
@@ -46,6 +45,7 @@
          (car lll)
          (cdr lll))))
 
+  
   (: map-append2 (∀ (A ...) (→ (List (Listof A) ...)
                                (List (Listof A) ...)
                                (List (Listof A) ...))))
@@ -53,71 +53,133 @@
     (map
      (ann append (∀ (X) (→ (Listof X) (Listof X) (Listof X)))) la lb)))
 
+(: map-cdr (∀ (A ...) (→ (List (Pairof Any A) ...) (List A ...))))
+(define (map-cdr l)
+  (map (λ #:∀ (X) ([x : (Pairof Any X)]) (cdr x)) l))
+
+(: map-car (∀ (A ...) (→ (List (Pairof A Any) ...) (List A ...))))
+(define (map-car l)
+  (map (λ #:∀ (X) ([x : (Pairof X Any)]) (car x)) l))
+
+(: worklist
+   (∀ (II OO A ...)
+      (→ (List (Listof (∩ A II)) ...)
+         (List (→ (∩ A II) (List (∩ A OO) (Listof (∩ A II)) ...)) ...)
+         (List (Listof (Pairof (∩ A II) (∩ A OO))) ...))))
+
 (define (worklist roots processors)
-  (define res
-    (map (λ #:∀ (Input Output) ([x : (Listof Input)]
-                                [f : (→ Input
-                                        (List Output (Listof (∩ A II)) ...))])
-           (map (λ ([x : (List Output (Listof (∩ A II)) ...)])
-                  ;; TODO: enqueue these instead of making a recursive call,
-                  ;; and discard the already-processed elements as well as those
-                  ;; already present in the queue.
-                  (kons (car x)
-                        ((inst worklist II OO A ... A) (cdr x) processors)))
-                (map f x)))
-         roots processors))
+  (define nulls (map (λ (_) (ann '() (Listof Nothing))) processors))
+  (define empty-sets (map list->set nulls))
 
-  (define nulls
-    (map (λ #:∀ (Input Output) ([f : (→ Input
-                                        (List Output (Listof (∩ A II)) ...))])
-           (ann '() (Listof Output)))
+  (define wrapped-processors
+    : (List (→ (∩ A II) (List (Pairof (∩ A II) (∩ A OO)) (Listof (∩ A II)) ...))
+            ...)
+    (map (λ #:∀ (In Out More) ([l : (Listof In)] [f : (→ In (Pairof Out More))])
+           (λ ([in : In]) : (Pairof (Pairof In Out) More)
+             (let ([out (f in)])
+               (cons (cons in (car out))
+                     (cdr out)))))
+         roots
          processors))
+  
+  (define (loop [queue* : (List (Setof (∩ A II)) ...)]
+                [done* : (List (Setof A) ...)])
+    : (List (Listof (Pairof (∩ A II) (∩ A OO))) ...)
 
-  ((inst append-inner-inner OO A ... A)
-   (kons nulls
-         (map (λ #:∀ (Output) ([x : (Listof (Pairof Output
-                                                    (List (Listof (∩ A OO))
-                                                          ...)))])
-                ;; (Pairof _ (Listof (List (Listof (∩ A OO)) ... A)))
-                ((inst append-inner-inner OO A ... A)
-                 (kons nulls
-                       (map (λ ([xᵢ : (Pairof Output
-                                              (List (Listof (∩ A OO)) ... A))])
-                              (cdr xᵢ))
-                            x))))
-              res))))
+    (displayln queue*)
+    (displayln done*)
+    (newline)
+
+    (if (andmap set-empty? queue*)
+        (ann nulls (List (Listof (Pairof (∩ A II) (∩ A OO))) ...))
+        (let ()
+          (define lqueue* (map set->list queue*))
+          (define res (map map wrapped-processors lqueue*))
+          (define new-done* (map set-union done* queue*))
+          (define new-inputs
+            ((inst append-inner-inner II A ... A)
+             (kons nulls
+                   (map (λ ([x : (Listof
+                                  (Pairof Any (List (Listof (∩ A II)) ...)))])
+                          ((inst append-inner-inner II A ... A)
+                           (kons nulls
+                                 (map-cdr x))))
+                        res))))
+
+          (define outputs (map map-car res))
+
+          (define new-to-do
+            (map set-subtract (map list->set new-inputs) new-done*))
+
+          (map append
+               outputs
+               (loop new-to-do new-done*)))))
+
+  (loop (map list->set roots) empty-sets))
 
 ;(:type mapf)
 ;(define (mapf vs procs)
 ;  (error "NIY"))
 
-(define w1
+(define-syntax-rule (inst-worklist (In Out) ...)
   (unsafe-cast
    (inst worklist
          (I Any) (O Any)
-         (U (I Number) (O String))
-         (U (I Float) (O Boolean)))
+         (U (I In) (O Out))
+         ...)
    ;; cast to its own type, circumventing the fact that TR doesn't seem to apply
    ;; intersections in this case.
-   (-> (List (Listof (Pairof 'I Number)) (Listof (Pairof 'I Flonum)))
+   (-> (List (Listof (Pairof 'I In)) ...)
        (List
-        (-> (Pairof 'I Number)
+        (-> (Pairof 'I In)
             (List
-             (Pairof 'O String)
-             (Listof (Pairof 'I Number))
-             (Listof (Pairof 'I Flonum))))
-        (-> (Pairof 'I Flonum)
-            (List
-             (Pairof 'O Boolean)
-             (Listof (Pairof 'I Number))
-             (Listof (Pairof 'I Flonum)))))
-       (List (Listof (Pairof 'O String)) (Listof (Pairof 'O Boolean))))))
+             (Pairof 'O Out)
+             (Listof (Pairof 'I In))
+             ...))
+        ...)
+       (List (Listof (Pairof (Pairof 'I In)
+                             (Pairof 'O Out)))
+             ...))))
 
+(: i* (∀ (A) (→ (Listof A) (Listof (I A)))))
+(define (i* l) (map (inst i A) l))
 
-(λ ()
-  (w1
-   '(() ())
-   (list (λ ([x : (I Number)])
-           (list (o (number->string (i-v x))) '() '()))
-         (λ ([x : (I Float)])
-           (list (o (positive? (i-v x))) '() '())))))
+(: i** (∀ (A ...) (→ (List (Listof A) ...) (List (Listof (I A)) ...))))
+(define (i** ll) (map i* ll))
+
+(: wrap-io (∀ (A B C ...) (→ (→ A (List B (Listof C) ...))
+                             (→ (I A) (List (O B) (Listof (I C)) ...)))))
+(define (wrap-io f)
+  (λ ([arg : (I A)])
+    (define result (f (i-v arg)))
+    (kons (o (car result)) (map i* (cdr result)))))
+
+(: unwrap-io1 (∀ (A B) (→ (Listof (Pairof (I A) (O B)))
+                          (Listof (Pairof A B)))))
+(define (unwrap-io1 l)
+  (map (λ ([x : (Pairof (I A) (O B))])
+         (kons (i-v (car x)) (o-v (cdr x))))
+       l))
+
+(define-syntax-rule (unwrap-io first-l (_ proc) ...)
+  (let*-values ([(new-l l) (values '() first-l)]
+                [(new-l l)
+                 (begin proc
+                        (values (kons (unwrap-io1 (car l))
+                                      new-l)
+                                (cdr l)))]
+                ...
+                [(new-l-reverse new-l-rest) (values '() new-l)]
+                [(new-l-reverse new-l-rest)
+                 (begin proc
+                        (values (kons (car new-l-rest)
+                                      new-l-reverse)
+                                (cdr new-l-rest)))]
+                ...)
+    new-l))
+
+(define-syntax-rule (work roots (proc ...) (In Out) ... )
+  (unwrap-io ((inst-worklist (In Out) ...)
+              (i** roots)
+              (list (wrap-io proc) ...))
+             (proc 'dummy) ...))
