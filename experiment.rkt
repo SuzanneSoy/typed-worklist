@@ -28,17 +28,17 @@
   #;(define (append-inner-inner lll)
       (apply map append lll))
 
-  (: append-inner-inner (∀ (OO A ...)
-                           (→ (Pairof (List (Listof (∩ OO A)) ...)
-                                      (Listof (List (Listof (∩ OO A)) ...)))
-                              (List (Listof (∩ OO A)) ... A))))
+  (: append-inner-inner (∀ (A ...)
+                           (→ (Pairof (List (Listof (∩ I? A)) ...)
+                                      (Listof (List (Listof (∩ I? A)) ...)))
+                              (List (Listof (∩ I? A)) ... A))))
   (define (append-inner-inner lll)
     (if (null? lll)
         '()
         ;; Could also just use recursion here.
         ((inst foldl
-               (List (Listof (∩ OO A)) ...)
-               (List (Listof (∩ OO A)) ...)
+               (List (Listof (∩ I? A)) ...)
+               (List (Listof (∩ I? A)) ...)
                Nothing
                Nothing)
          map-append2
@@ -61,18 +61,21 @@
 (define (map-car l)
   (map (λ #:∀ (X) ([x : (Pairof X Any)]) (car x)) l))
 
+(define-type I? (I Any))
+(define-type O? (O Any))
+
 (: worklist
-   (∀ (II OO A ...)
-      (→ (List (Listof (∩ A II)) ...)
-         (List (→ (∩ A II) (List (∩ A OO) (Listof (∩ A II)) ...)) ...)
-         (List (Listof (Pairof (∩ A II) (∩ A OO))) ...))))
+   (∀ (A ...)
+      (case→ (→ (List (Listof (∩ A I?)) ...)
+                (List (→ (∩ A I?) (List (∩ A O?) (Listof (∩ A I?)) ...)) ...)
+                (List (Listof (Pairof (∩ A I?) (∩ A O?))) ...)))))
 
 (define (worklist roots processors)
   (define nulls (map (λ (_) (ann '() (Listof Nothing))) processors))
   (define empty-sets (map list->set nulls))
 
   (define wrapped-processors
-    : (List (→ (∩ A II) (List (Pairof (∩ A II) (∩ A OO)) (Listof (∩ A II)) ...))
+    : (List (→ (∩ A I?) (List (Pairof (∩ A I?) (∩ A O?)) (Listof (∩ A I?)) ...))
             ...)
     (map (λ #:∀ (In Out More) ([l : (Listof In)] [f : (→ In (Pairof Out More))])
            (λ ([in : In]) : (Pairof (Pairof In Out) More)
@@ -82,26 +85,22 @@
          roots
          processors))
   
-  (define (loop [queue* : (List (Setof (∩ A II)) ...)]
+  (define (loop [queue* : (List (Setof (∩ A I?)) ...)]
                 [done* : (List (Setof A) ...)])
-    : (List (Listof (Pairof (∩ A II) (∩ A OO))) ...)
-
-    (displayln queue*)
-    (displayln done*)
-    (newline)
+    : (List (Listof (Pairof (∩ A I?) (∩ A O?))) ...)
 
     (if (andmap set-empty? queue*)
-        (ann nulls (List (Listof (Pairof (∩ A II) (∩ A OO))) ...))
+        (ann nulls (List (Listof (Pairof (∩ A I?) (∩ A O?))) ...))
         (let ()
           (define lqueue* (map set->list queue*))
           (define res (map map wrapped-processors lqueue*))
           (define new-done* (map set-union done* queue*))
           (define new-inputs
-            ((inst append-inner-inner II A ... A)
+            ((inst append-inner-inner A ... A)
              (kons nulls
                    (map (λ ([x : (Listof
-                                  (Pairof Any (List (Listof (∩ A II)) ...)))])
-                          ((inst append-inner-inner II A ... A)
+                                  (Pairof Any (List (Listof (∩ A I?)) ...)))])
+                          ((inst append-inner-inner A ... A)
                            (kons nulls
                                  (map-cdr x))))
                         res))))
@@ -124,7 +123,6 @@
 (define-syntax-rule (inst-worklist (In Out) ...)
   (unsafe-cast
    (inst worklist
-         (I Any) (O Any)
          (U (I In) (O Out))
          ...)
    ;; cast to its own type, circumventing the fact that TR doesn't seem to apply
@@ -183,3 +181,18 @@
               (i** roots)
               (list (wrap-io proc) ...))
              (proc 'dummy) ...))
+
+
+(work (list (list 7)
+            (list))
+      [(λ ([x : Integer])
+         (list (number->string x)
+               (list (if (> x 0) (sub1 x) 0))
+               (list (string->symbol
+                      (string-append "v" (number->string x))))))
+       (λ ([x : Symbol])
+         (list (eq? 'v5 x)
+               (list 10)
+               (list 'xyz)))]
+      (Integer String)
+      (Symbol Boolean))
