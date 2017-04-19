@@ -8,17 +8,8 @@
 ;; is fixed), and (un)wraps the inputs and outputs.
 (provide worklist)
 
-#;(struct (A) I ([v : A]) #:transparent)
-#;(struct (A) O ([v : A]) #:transparent)
-
-(define-type (I A) (Pairof 'I A))
-(define-type (O A) (Pairof 'O A))
-
-(define #:∀ (A) (i [a : A]) : (I A) (cons 'I a))
-(define #:∀ (A) (o [a : A]) : (O A) (cons 'O a))
-
-(define #:∀ (A) (i-v [w : (I A)]) : A (cdr w))
-(define #:∀ (A) (o-v [w : (O A)]) : A (cdr w))
+(struct (A) I ([v : A]) #:transparent)
+(struct (A) O ([v : A]) #:transparent)
 
 (: kons (∀ (A B) (→ A B (Pairof A B))))
 (define kons cons)
@@ -29,16 +20,16 @@
       (apply map append lll))
 
   (: append-inner-inner (∀ (A ...)
-                           (→ (Pairof (List (Listof (∩ I? A)) ...)
-                                      (Listof (List (Listof (∩ I? A)) ...)))
-                              (List (Listof (∩ I? A)) ... A))))
+                           (→ (Pairof (List (Listof (∩ I* A)) ...)
+                                      (Listof (List (Listof (∩ I* A)) ...)))
+                              (List (Listof (∩ I* A)) ... A))))
   (define (append-inner-inner lll)
     (if (null? lll)
         '()
         ;; Could also just use recursion here.
         ((inst foldl
-               (List (Listof (∩ I? A)) ...)
-               (List (Listof (∩ I? A)) ...)
+               (List (Listof (∩ I* A)) ...)
+               (List (Listof (∩ I* A)) ...)
                Nothing
                Nothing)
          map-append2
@@ -61,21 +52,21 @@
 (define (map-car l)
   (map (λ #:∀ (X) ([x : (Pairof X Any)]) (car x)) l))
 
-(define-type I? (I Any))
-(define-type O? (O Any))
+(define-type I* (I Any))
+(define-type O* (O Any))
 
 (: worklist
    (∀ (A ...)
-      (case→ (→ (List (Listof (∩ A I?)) ...)
-                (List (→ (∩ A I?) (List (∩ A O?) (Listof (∩ A I?)) ...)) ...)
-                (List (Listof (Pairof (∩ A I?) (∩ A O?))) ...)))))
+      (case→ (→ (List (Listof (∩ A I*)) ...)
+                (List (→ (∩ A I*) (List (∩ A O*) (Listof (∩ A I*)) ...)) ...)
+                (List (Listof (Pairof (∩ A I*) (∩ A O*))) ...)))))
 
 (define (worklist roots processors)
   (define nulls (map (λ (_) (ann '() (Listof Nothing))) processors))
   (define empty-sets (map list->set nulls))
 
   (define wrapped-processors
-    : (List (→ (∩ A I?) (List (Pairof (∩ A I?) (∩ A O?)) (Listof (∩ A I?)) ...))
+    : (List (→ (∩ A I*) (List (Pairof (∩ A I*) (∩ A O*)) (Listof (∩ A I*)) ...))
             ...)
     (map (λ #:∀ (In Out More) ([l : (Listof In)] [f : (→ In (Pairof Out More))])
            (λ ([in : In]) : (Pairof (Pairof In Out) More)
@@ -85,12 +76,12 @@
          roots
          processors))
   
-  (define (loop [queue* : (List (Setof (∩ A I?)) ...)]
+  (define (loop [queue* : (List (Setof (∩ A I*)) ...)]
                 [done* : (List (Setof A) ...)])
-    : (List (Listof (Pairof (∩ A I?) (∩ A O?))) ...)
+    : (List (Listof (Pairof (∩ A I*) (∩ A O*))) ...)
 
     (if (andmap set-empty? queue*)
-        (ann nulls (List (Listof (Pairof (∩ A I?) (∩ A O?))) ...))
+        (ann nulls (List (Listof (Pairof (∩ A I*) (∩ A O*))) ...))
         (let ()
           (define lqueue* (map set->list queue*))
           (define res (map map wrapped-processors lqueue*))
@@ -99,7 +90,7 @@
             ((inst append-inner-inner A ... A)
              (kons nulls
                    (map (λ ([x : (Listof
-                                  (Pairof Any (List (Listof (∩ A I?)) ...)))])
+                                  (Pairof Any (List (Listof (∩ A I*)) ...)))])
                           ((inst append-inner-inner A ... A)
                            (kons nulls
                                  (map-cdr x))))
@@ -127,20 +118,20 @@
          ...)
    ;; cast to its own type, circumventing the fact that TR doesn't seem to apply
    ;; intersections in this case.
-   (-> (List (Listof (Pairof 'I In)) ...)
+   (-> (List (Listof (I In)) ...)
        (List
-        (-> (Pairof 'I In)
+        (-> (I In)
             (List
-             (Pairof 'O Out)
-             (Listof (Pairof 'I In))
+             (O Out)
+             (Listof (I In))
              ...))
         ...)
-       (List (Listof (Pairof (Pairof 'I In)
-                             (Pairof 'O Out)))
+       (List (Listof (Pairof (I In)
+                             (O Out)))
              ...))))
 
 (: i* (∀ (A) (→ (Listof A) (Listof (I A)))))
-(define (i* l) (map (inst i A) l))
+(define (i* l) (map (inst I A) l))
 
 (: i** (∀ (A ...) (→ (List (Listof A) ...) (List (Listof (I A)) ...))))
 (define (i** ll) (map i* ll))
@@ -149,14 +140,14 @@
                              (→ (I A) (List (O B) (Listof (I C)) ...)))))
 (define (wrap-io f)
   (λ ([arg : (I A)])
-    (define result (f (i-v arg)))
-    (kons (o (car result)) (map i* (cdr result)))))
+    (define result (f (I-v arg)))
+    (kons (O (car result)) (map i* (cdr result)))))
 
 (: unwrap-io1 (∀ (A B) (→ (Listof (Pairof (I A) (O B)))
                           (Listof (Pairof A B)))))
 (define (unwrap-io1 l)
   (map (λ ([x : (Pairof (I A) (O B))])
-         (kons (i-v (car x)) (o-v (cdr x))))
+         (kons (I-v (car x)) (O-v (cdr x))))
        l))
 
 (define-syntax-rule (unwrap-io first-l (_ proc) ...)
