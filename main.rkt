@@ -4,10 +4,6 @@
 
 (require (only-in type-expander unsafe-cast))
 
-;; TODO: write a macro wrapper which does the unsafe-cast (until the bug in TR
-;; is fixed), and (un)wraps the inputs and outputs.
-(provide worklist-function)
-
 (struct (A) I ([v : A]) #:transparent)
 (struct (A) O ([v : A]) #:transparent)
 
