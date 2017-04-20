@@ -9,5 +9,3 @@ Typed Worklist
 ==============
 
 A Typed/Racket implementation of Kildall's worklist algorithm, with multiple worklists of different types.
-
-Currently a work in progress.
