@@ -1,12 +1,12 @@
 #lang typed/racket
 
-(provide work)
+(provide worklist)
 
 (require (only-in type-expander unsafe-cast))
 
 ;; TODO: write a macro wrapper which does the unsafe-cast (until the bug in TR
 ;; is fixed), and (un)wraps the inputs and outputs.
-(provide worklist)
+(provide worklist-function)
 
 (struct (A) I ([v : A]) #:transparent)
 (struct (A) O ([v : A]) #:transparent)
@@ -55,13 +55,13 @@
 (define-type I* (I Any))
 (define-type O* (O Any))
 
-(: worklist
+(: worklist-function
    (∀ (A ...)
       (case→ (→ (List (Listof (∩ A I*)) ...)
                 (List (→ (∩ A I*) (List (∩ A O*) (Listof (∩ A I*)) ...)) ...)
                 (List (Listof (Pairof (∩ A I*) (∩ A O*))) ...)))))
 
-(define (worklist roots processors)
+(define (worklist-function roots processors)
   (define nulls (map (λ (_) (ann '() (Listof Nothing))) processors))
   (define empty-sets (map list->set nulls))
 
@@ -113,7 +113,7 @@
 
 (define-syntax-rule (inst-worklist (In Out) ...)
   (unsafe-cast
-   (inst worklist
+   (inst worklist-function
          (U (I In) (O Out))
          ...)
    ;; cast to its own type, circumventing the fact that TR doesn't seem to apply
@@ -167,14 +167,14 @@
                 ...)
     new-l))
 
-(define-syntax-rule (work roots (proc ...) (In Out) ... )
+(define-syntax-rule (worklist roots (proc ...) (In Out) ... )
   (unwrap-io ((inst-worklist (In Out) ...)
               (i** roots)
               (list (wrap-io proc) ...))
              (proc 'dummy) ...))
 
 
-(work (list (list 7)
+(worklist (list (list 7)
             (list))
       [(λ ([x : Integer])
          (list (number->string x)
