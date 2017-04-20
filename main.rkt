@@ -144,11 +144,12 @@
     (kons (O (car result)) (map i* (cdr result)))))
 
 (: unwrap-io1 (∀ (A B) (→ (Listof (Pairof (I A) (O B)))
-                          (Listof (Pairof A B)))))
+                          (HashTable A B))))
 (define (unwrap-io1 l)
-  (map (λ ([x : (Pairof (I A) (O B))])
-         (kons (I-v (car x)) (O-v (cdr x))))
-       l))
+  (make-immutable-hash
+   (map (λ ([x : (Pairof (I A) (O B))])
+          (kons (I-v (car x)) (O-v (cdr x))))
+        l)))
 
 (define-syntax-rule (unwrap-io first-l (_ proc) ...)
   (let*-values ([(new-l l) (values '() first-l)]
@@ -172,18 +173,3 @@
               (i** roots)
               (list (wrap-io proc) ...))
              (proc 'dummy) ...))
-
-
-(worklist (list (list 7)
-            (list))
-      [(λ ([x : Integer])
-         (list (number->string x)
-               (list (if (> x 0) (sub1 x) 0))
-               (list (string->symbol
-                      (string-append "v" (number->string x))))))
-       (λ ([x : Symbol])
-         (list (eq? 'v5 x)
-               (list 10)
-               (list 'xyz)))]
-      (Integer String)
-      (Symbol Boolean))
