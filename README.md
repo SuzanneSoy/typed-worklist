@@ -8,4 +8,4 @@
 Typed Worklist
 ==============
 
-A Typed/Racket implementation of Kildall's worklist algorithm, with multiple worklists of different types.
+A Typed Racket implementation of a general-purpose worklist, with multiple worklists of different types.
