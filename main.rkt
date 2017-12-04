@@ -108,6 +108,9 @@
 ;  (error "NIY"))
 
 (define-syntax-rule (inst-worklist (In Out) ...)
+  ;; The unsafe-cast seems unnecessary on recent Typed Racket versions, and can
+  ;; be replaced with "ann". We should use a version check to use it only for
+  ;; backward-compatibility on older versions.
   (unsafe-cast
    (inst worklist-function
          (U (I In) (O Out))
