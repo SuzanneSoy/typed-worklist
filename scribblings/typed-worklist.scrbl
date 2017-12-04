@@ -28,12 +28,12 @@ of nodes that still need to be visited. A polymorphic
 processed/to-process nodes from a @emph{homogeneous} graph would have the
 following signature:
 
-@nested[#:style 'inset]{
- @defproc[(example-worklist1 [roots (Listof In)]
-                             [proc (→ In (Values Out (Listof In)))])
-          (Listof Out)
-          #:link-target? #f]{
-                            
+@nested[
+ #:style 'inset
+ @defproc[#:link-target? #f
+ (example-worklist1 [roots (Listof In)]
+                    [proc (→ In (Values Out (Listof In)))])
+ (Listof Out)]{
   Signature for a hypothetical function which takes an initial list of tasks of
   type @racketid[In], and a processing function which consumes one task,
   returning a result of type @racket[Out], and a list of new tasks.
@@ -41,8 +41,7 @@ following signature:
   The hypothetical function would return the results obtained after processing
   each task, making sure that each task is processed only once (i.e. if a task
   is returned multiple times by processing functions, it is only added once to
-  the queue).}
-}
+  the queue).}]
 
 However, when the tasks to handle have heterogeneous types @racket[In₁ … Inₙ],
 the type of the @racketid[worklist] function is not simple to express. Using
