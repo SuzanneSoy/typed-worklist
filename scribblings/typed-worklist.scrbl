@@ -8,8 +8,33 @@
 
 @defmodule[typed-worklist]
 
+@section{Overview}
+
+When traversing a graph, one might want to keep track of the already-processed
+nodes, and the ones which still have to be processed. The same goes when
+implementing algorithms for which work on an element may queue more elements.
+
+If there is only one type of element, then the @racketid[worklist] function's
+type is simple:
+
+@racketblock[
+ (∀ (In Out) (→ (Listof In)
+                (→ In (Values Out (Listof In)))
+                (Listof Out)))]
+
+This package provides a @racketid[worklist] function (with a lightweight macro
+wrapper) which can handle @racketid[n] worklists, where each worklist holds
+tasks of different types. Furthermore, the worker for each element type may
+enqueue elements into arbitrary worklists.
+
+This macro should be useful when traversing heterogeneous graphs, or when
+implementing algorithms which use several waiting queues (worklists) holding
+elements of different types.
+
+@section{Intended use}
+
 This package is mainly intended to be used by the
-@racketmodname[phc-graph #:indirect] package@note{the development of
+@racketmodname[phc-graph #:indirect] package@note{The development of
  @racketmodname[phc-graph #:indirect] is currently stalled, as I'm
  investigating solutions based on @racketmodname[turnstile #:indirect].}.
 
@@ -19,7 +44,8 @@ conceptualised as a trees where nodes can have different types (e.g. nodes of
 type @racketid[A] have children of type @racketid[B], which have children of
 type @racketid[C], which have children of type @racketid[A], and each node
 type can hold different metadata), generalised to allow backward arcs (so that
-the trees become true graphs).
+the trees become true graphs). This sort of transformation can for example
+occur when transforming an abstract syntax tree within a pass of a compiler.
 
 A simple technique for traversing and processing such a data structure is to
 have a worklist, which remembers the already-visited nodes, as well as a queue
@@ -62,6 +88,8 @@ requires some amount of boilerplate to correctly instantiate its type, wrap
 the inputs with @racket[I], and extract the results out of the @racket[O]. The
 @racket[worklist] macro takes care of this boilerplate.
 
+@section{Theoretical interest}
+
 It is worth noting that the core of the @racket[worklist] implementation is a
 function. The macro does not generate the whole implementation, instead it
 merely generates a lightweight wrapper and takes care of the instantiation of
@@ -79,6 +107,8 @@ this problem would require at first look some flavor of type-level
 computation, dependent types or similar advanced typing features.
 Comparatively, the mechanisms used here (variadic polymorphic variables and
 intersection types) are refreshingly simple.
+
+@section{The @racket[worklist] macro}
 
 @defform[(worklist roots [procᵢ …ₙ] [Inᵢ Outᵢ] …ₙ)
          #:contracts
