@@ -40,7 +40,7 @@ This package is mainly intended to be used by the
 
 The goal of @racketmodname[phc-graph #:indirect] is to implement generalised
 folds (catamorphisms) over heterogeneous graphs. Heterogeneous graphs can be
-conceptualised as a trees where nodes can have different types (e.g. nodes of
+conceptualised as trees where nodes can have different types (e.g. nodes of
 type @racketid[A] have children of type @racketid[B], which have children of
 type @racketid[C], which have children of type @racketid[A], and each node
 type can hold different metadata), generalised to allow backward arcs (so that
@@ -75,7 +75,7 @@ Typed Racket's variadic polymorphic types, also sometimes mentioned as
 "polydots" (of the form @racket[(∀ (A B X ...) τ)]) along with intersection
 types, it is possible to encode the type of @racket[worklist].
 
-Typed Racket is not (yet?) able to reliably enfoce the fact that two variadic
+Typed Racket is not (yet?) able to reliably enforce the fact that two variadic
 polymorphic type variables must have the same length. The trick is to wrap the
 @racket[Inᵢ] and @racket[Outᵢ] types with structs @racket[I] and @racket[O],
 which serve as type-level tags. Then, a single variadic type variable ranges
@@ -103,7 +103,7 @@ could still fail to typecheck, but it is a smaller and simpler piece of code).
 
 Finally, it is a remarkable feat that Typed Racket is able to express the type
 of such a function (and is also able to typecheck its implementation!), as
-this problem would require at first look some flavor of type-level
+this problem would require at a first look some flavor of type-level
 computation, dependent types or similar advanced typing features.
 Comparatively, the mechanisms used here (variadic polymorphic variables and
 intersection types) are refreshingly simple.
