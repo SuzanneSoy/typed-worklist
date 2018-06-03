@@ -1,6 +1,6 @@
 #lang info
 (define collection "typed-worklist")
-(define deps '("base"
+(define deps '(("base" "6.6.0.900")
                "rackunit-lib"
                "type-expander"
                "typed-racket-lib"
